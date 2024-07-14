@@ -32,21 +32,70 @@ public class Filter {
         public InfoType type;
 
         //Strings
-        public int countStr;
-        public int minLngthStr, maxLngthStr;
+        private int countStr;
+        private int minLngthStr, maxLngthStr;
 
         //Integers
-        public int countInt;
-        public int minInt, maxInt, sumInt;
-        public float averageInt;
+        private int countInt;
+        private int minInt, maxInt, sumInt;
+        private float averageInt;
 
         //Floats
-        public int countFl;
-        public float minFl, maxFl, sumFl;
-        public float averageFl;
+        private int countFl;
+        private float minFl, maxFl, sumFl;
+        private float averageFl;
 
         public Info() {
             type = InfoType.NONE;
+        }
+
+        public void addInfo(String str, FileType type) {
+            switch (type) {
+                case STRINGS: {
+                    countStr++;
+
+                    if (countStr == 1 || minLngthStr > str.length()) {
+                        minLngthStr = str.length();
+                    }
+                    if (countStr == 1 || maxLngthStr < str.length()) {
+                        maxLngthStr = str.length();
+                    }
+
+                    break;
+                }
+                case INTEGERS: {
+                    countInt++;
+                    int value = Integer.parseInt(str);
+
+                    sumInt += value;
+                    averageInt = (float) sumInt / countInt;
+
+                    if (countInt == 1 || minInt > value) {
+                        minInt = value;
+                    }
+                    if (countInt == 1 || maxInt < value) {
+                        maxInt = value;
+                    }
+
+                    break;
+                }
+                case FLOATS: {
+                    countFl++;
+                    float value = Float.parseFloat(str);
+
+                    sumFl += value;
+                    averageFl = sumFl / countFl;
+
+                    if (countFl == 1 || minFl > value) {
+                        minFl = value;
+                    }
+                    if (countFl == 1 || maxFl < value) {
+                        maxFl = value;
+                    }
+
+                    break;
+                }
+            }
         }
 
         private String getShortInfo() {
@@ -77,7 +126,7 @@ public class Filter {
                         "\nСамое большое число: " + maxFl +
                         "\nСамое маленькое число: " + minFl +
                         "\nСумма: " + sumFl +
-                        "\nСреднее: " + df.format(averageFl);
+                        "\nСреднее: " + averageFl;
             }
 
             return str;
@@ -107,38 +156,39 @@ public class Filter {
             filter.outText.put(type, "");
         }
 
-
         ArrayList<BufferedReader> readers = new ArrayList<>();
-        for (int i = 0; i < args.length - idx; i++) {
+        for (int i = idx; i < args.length; i++) {
             try {
-                BufferedReader reader = new BufferedReader(new FileReader(args[idx+i]));
+                BufferedReader reader = new BufferedReader(new FileReader(args[i]));
                 readers.add(reader);
             } catch (IOException e) {
-                filter.outInfo += "Файл '" + args[idx+i] + "' не возможно прочитать или его не существует.\n";
+                filter.outInfo += "Файл '" + args[i] + "' не возможно прочитать или его не существует.\n";
             }
         }
 
         filter.fileFilter(readers);
 
+
         if (filter.createOutFiles())
-            return filter.outInfo + filter.info;
+            return "\n" + filter.outInfo + filter.info;
         else
             return filter.outInfo;
     }
 
+    //Инициализация параметров
     private String initParam (String[] args) {
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "-o": {
                     if (i >= args.length-1) {
-                        return "Параметр команды '-o' отсутствует.";
+                        return "Параметр команды '" + args[i] + "' отсутствует.";
                     }
                     pathToFiles = args[++i] + "\\";
                     break;
                 }
                 case "-p": {
                     if (i >= args.length-1) {
-                        return "Параметр команды '-p' отсутствует.";
+                        return "Параметр команды '" + args[i] + "' отсутствует.";
                     }
                     prefix = args[++i];
 
@@ -169,12 +219,12 @@ public class Filter {
         return "Не указаны входные файлы.";
     }
 
+    //Чтение файлов и распределение данных
     private void fileFilter(ArrayList<BufferedReader> readers) {
         while(!readers.isEmpty()) {
             for (int i = 0; i < readers.size(); i++) {
-                String str;
                 try {
-                    str = readers.get(i).readLine();
+                    String str = readers.get(i).readLine();
                     if (str == null) {
                         readers.remove(i).close();
                         i--;
@@ -200,9 +250,13 @@ public class Filter {
         }
     }
 
+    //Создание выходных файлов и запись фильтрованных данных
     private boolean createOutFiles() {
         for (FileType type: FileType.values()) {
-            if (outText.get(type).isEmpty()) continue;
+            if (outText.get(type).isEmpty()) {
+                outText.remove(type);
+                continue;
+            }
             try {
                 BufferedWriter w = new BufferedWriter(new FileWriter(pathToFiles + prefix + type, isAddInfo));
                 w.write(outText.get(type));
@@ -212,62 +266,25 @@ public class Filter {
                 return false;
             }
         }
-        return true;
+        if (outText.isEmpty()) {
+            outInfo += "Нет данных для записи.\n";
+            return false;
+        } else
+            return true;
     }
 
 
 
+    //Additional functions
+
+    //Добавление данных
     private void addStr(String str, FileType type) {
         outText.replace(type, outText.get(type), outText.get(type) + str + "\n");
 
-        switch (type) {
-            case STRINGS: {
-                info.countStr++;
-
-                if (info.countStr == 1 || info.minLngthStr > str.length()) {
-                    info.minLngthStr = str.length();
-                }
-                if (info.countStr == 1 || info.maxLngthStr < str.length()) {
-                    info.maxLngthStr = str.length();
-                }
-
-                break;
-            }
-            case INTEGERS: {
-                info.countInt++;
-                int value = Integer.parseInt(str);
-
-                info.sumInt += value;
-                info.averageInt = (float) info.sumInt / info.countInt;
-
-                if (info.countInt == 1 || info.minInt > value) {
-                    info.minInt = value;
-                }
-                if (info.countInt == 1 || info.maxInt < value) {
-                    info.maxInt = value;
-                }
-
-                break;
-            }
-            case FLOATS: {
-                info.countFl++;
-                float value = Float.parseFloat(str);
-
-                info.sumFl += value;
-                info.averageFl = info.sumFl / info.countFl;
-
-                if (info.countFl == 1 || info.minFl > value) {
-                    info.minFl = value;
-                }
-                if (info.countFl == 1 || info.maxFl < value) {
-                    info.maxFl = value;
-                }
-
-                break;
-            }
-        }
+        info.addInfo(str, type);
     }
 
+    //Проверка на запрещенные символы
     private boolean isThereWrongChars(String str) {
         for (char ch: new char[]{'\\','/',':','*','?','"','<','>','|'}) {
             if (str.indexOf(ch) != -1) { return true; }
