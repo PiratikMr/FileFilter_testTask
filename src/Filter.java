@@ -181,19 +181,29 @@ public class Filter {
             switch (args[i]) {
                 case "-o": {
                     if (i >= args.length-1) {
-                        return "Параметр команды '" + args[i] + "' отсутствует.";
+                        return "Параметр команды '" + args[i] + "' отсутствует.\n";
                     }
                     pathToFiles = args[++i] + "\\";
+                    File path = new File(pathToFiles);
+
+                    if (!path.exists()) {
+                        if (isThereWrongChars(path.getName())) {
+                            return  "В '" + path.getName() + "' есть запрещённые символы для создания папки.\n";
+                        }
+                        if (!path.mkdir()) {
+                            return "Пути '" + pathToFiles + "' не существует.\n";
+                        }
+                    }
                     break;
                 }
                 case "-p": {
                     if (i >= args.length-1) {
-                        return "Параметр команды '" + args[i] + "' отсутствует.";
+                        return "Параметр команды '" + args[i] + "' отсутствует.\n";
                     }
                     prefix = args[++i];
 
                     if (isThereWrongChars(prefix)) {
-                        return "В '" + prefix + "' есть запрещенные символы для создания файла.";
+                        return "В '" + prefix + "' есть запрещенные символы для создания файла.\n";
                     }
 
                     break;
@@ -252,11 +262,6 @@ public class Filter {
 
     //Создание выходных файлов и запись фильтрованных данных
     private boolean createOutFiles() {
-        File path = new File(pathToFiles);
-        if (!path.exists()) {
-            path.mkdir();
-        }
-
 
         for (FileType type: FileType.values()) {
             if (outText.get(type).isEmpty()) {
@@ -268,7 +273,6 @@ public class Filter {
                 w.write(outText.get(type));
                 w.close();
             } catch (IOException e) {
-                outInfo += "Пути '" + pathToFiles + "' не существует.\n";
                 return false;
             }
         }
