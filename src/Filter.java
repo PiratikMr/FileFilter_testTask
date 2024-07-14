@@ -49,7 +49,7 @@ public class Filter {
             type = InfoType.NONE;
         }
 
-        public void addInfo(String str, FileType type) {
+        public void editInfo(String str, FileType type) {
             switch (type) {
                 case STRINGS: {
                     countStr++;
@@ -252,6 +252,12 @@ public class Filter {
 
     //Создание выходных файлов и запись фильтрованных данных
     private boolean createOutFiles() {
+        File path = new File(pathToFiles);
+        if (!path.exists()) {
+            path.mkdir();
+        }
+
+
         for (FileType type: FileType.values()) {
             if (outText.get(type).isEmpty()) {
                 outText.remove(type);
@@ -281,7 +287,7 @@ public class Filter {
     private void addStr(String str, FileType type) {
         outText.replace(type, outText.get(type), outText.get(type) + str + "\n");
 
-        info.addInfo(str, type);
+        info.editInfo(str, type);
     }
 
     //Проверка на запрещенные символы
