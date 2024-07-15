@@ -7,7 +7,7 @@ public class Filter {
     private String pathToFiles = "";
     private String prefix = "";
     private final Info info = new Info();
-    private boolean isAddInfo = false;
+    private boolean isAddData = false;
 
     private String outInfo = "";
 
@@ -106,7 +106,7 @@ public class Filter {
 
         private String getLongInfo() {
             String str = getShortInfo();
-            DecimalFormat df = new DecimalFormat("#.#");
+
             if (countStr != 0) {
                 str += "\n\t\t||Строки||" +
                         "\nСамая длинная строка: " + maxLngthStr +
@@ -118,7 +118,7 @@ public class Filter {
                         "\nСамое большое число: " + maxInt +
                         "\nСамое маленькое число: " + minInt +
                         "\nСумма: " + sumInt +
-                        "\nСреднее: " + df.format(averageInt);
+                        "\nСреднее: " + new DecimalFormat("#.#").format(averageInt);
             }
 
             if (countFl != 0) {
@@ -134,8 +134,8 @@ public class Filter {
 
         @Override public String toString() {
             return switch (type) {
-                case SHORT -> getShortInfo();
-                case FULL -> getLongInfo();
+                case SHORT -> getShortInfo() + "\n";
+                case FULL -> getLongInfo() + "\n";
                 case NONE -> "";
             };
         }
@@ -144,33 +144,35 @@ public class Filter {
 
     public static String filter(String[] args) {
         Filter filter = new Filter();
-        String str = filter.initParam(args);
-        int idx;
+
+        String[] files;
         try {
-            idx = Integer.parseInt(str);
+            int idx = Integer.parseInt(filter.initParam(args));
+            files = filter.getFiles(args, idx);
         } catch (NumberFormatException e) {
-            return str;
+            return filter.outInfo;
         }
 
-        for (FileType type: FileType.values()) {
+        if (files == null)
+            return filter.outInfo + "Нет данных для записи.";
+
+
+        for (FileType type: FileType.values()) //инициализация выходных данных
             filter.outText.put(type, "");
-        }
+
 
         ArrayList<BufferedReader> readers = new ArrayList<>();
-        for (int i = idx; i < args.length; i++) {
+        for (String file : files) {
             try {
-                BufferedReader reader = new BufferedReader(new FileReader(args[i]));
+                BufferedReader reader = new BufferedReader(new FileReader(file));
                 readers.add(reader);
-            } catch (IOException e) {
-                filter.outInfo += "Файл '" + args[i] + "' не возможно прочитать или его не существует.\n";
-            }
+            } catch (IOException ignore) {}
         }
 
         filter.fileFilter(readers);
 
-
         if (filter.createOutFiles())
-            return "\n" + filter.outInfo + filter.info;
+            return filter.outInfo + filter.info;
         else
             return filter.outInfo;
     }
@@ -181,35 +183,40 @@ public class Filter {
             switch (args[i]) {
                 case "-o": {
                     if (i >= args.length-1) {
-                        return "Параметр команды '" + args[i] + "' отсутствует.\n";
+                        addError("Параметр команды '+' отсутствует.", args[i]);
+                        return null;
                     }
                     pathToFiles = args[++i] + "\\";
                     File path = new File(pathToFiles);
 
                     if (!path.exists()) {
                         if (isThereWrongChars(path.getName())) {
-                            return  "В '" + path.getName() + "' есть запрещённые символы для создания папки.\n";
+                            addError("В '+' есть запрещенные символы для создания папки.", path.getName());
+                            return null;
                         }
                         if (!path.mkdir()) {
-                            return "Пути '" + pathToFiles + "' не существует.\n";
+                            addError("Пути '+' не существует.", path.getParent());
+                            return null;
                         }
                     }
                     break;
                 }
                 case "-p": {
                     if (i >= args.length-1) {
-                        return "Параметр команды '" + args[i] + "' отсутствует.\n";
+                        addError("Параметр команды '+' отсутствует.", args[i]);
+                        return null;
                     }
                     prefix = args[++i];
 
                     if (isThereWrongChars(prefix)) {
-                        return "В '" + prefix + "' есть запрещенные символы для создания файла.\n";
+                        addError("В '+' есть запрещенные символы для создания файла.", prefix);
+                        return null;
                     }
 
                     break;
                 }
                 case "-a": {
-                    isAddInfo = true;
+                    isAddData = true;
                     break;
                 }
                 case "-s": {
@@ -226,7 +233,8 @@ public class Filter {
             }
         }
 
-        return "Не указаны входные файлы.";
+        addError("Не указаны входные файлы.", null);
+        return null;
     }
 
     //Чтение файлов и распределение данных
@@ -269,7 +277,7 @@ public class Filter {
                 continue;
             }
             try {
-                BufferedWriter w = new BufferedWriter(new FileWriter(pathToFiles + prefix + type, isAddInfo));
+                BufferedWriter w = new BufferedWriter(new FileWriter(pathToFiles + prefix + type, isAddData));
                 w.write(outText.get(type));
                 w.close();
             } catch (IOException e) {
@@ -277,7 +285,7 @@ public class Filter {
             }
         }
         if (outText.isEmpty()) {
-            outInfo += "Нет данных для записи.\n";
+            addError("Нет данных для записи.", null);
             return false;
         } else
             return true;
@@ -285,7 +293,7 @@ public class Filter {
 
 
 
-    //Additional functions
+    //Доп. функции
 
     //Добавление данных
     private void addStr(String str, FileType type) {
@@ -300,5 +308,46 @@ public class Filter {
             if (str.indexOf(ch) != -1) { return true; }
         }
         return false;
+    }
+
+    //Выделение путей исходных файлов в массив
+    private String[] getFiles(String[] args, int fromIdx) {
+        ArrayList<String> files = new ArrayList<>();
+        for (int i = fromIdx; i < args.length; i++) {
+            String[] arg = args[i].split(",");
+            if (arg.length == 1) {
+                if (!new File(args[i]).exists())
+                    addError("Файл '+' не возможно прочитать или его не существует.", args[i]);
+                else
+                    files.add(args[i]);
+                continue;
+            }
+
+            File folder = new File(new File(arg[0]).getParent());
+            if (!folder.exists()) {
+                addError("Пути '+' не существует.", folder.getName());
+                continue;
+            }
+
+            for (int j = 0; j < arg.length; j++) {
+                String filePath = j==0 ? arg[0] : folder.getPath() + "\\" + arg[j];
+                if (!new File(filePath).exists()) {
+                    addError("Файл '+' не возможно прочитать или его не существует.", filePath);
+                    continue;
+                }
+
+                files.add(filePath);
+            }
+        }
+
+        return files.isEmpty() ? null : files.toArray(new String[0]);
+    }
+
+    //Добавление ошибки
+    private void addError(String error, String param) {
+        if (error.contains("+"))
+            outInfo += error.replace("+", param) + "\n";
+        else
+            outInfo += error + "\n";
     }
 }
