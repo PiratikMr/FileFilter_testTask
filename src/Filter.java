@@ -183,34 +183,41 @@ public class Filter {
             switch (args[i]) {
                 case "-o": {
                     if (i >= args.length-1) {
-                        addError("Параметр команды '+' отсутствует.", args[i]);
-                        return null;
+                        addError("Параметр команды '+' отсутствует." +
+                                " Выходные файлы будут помещены в папку с программой.", args[i]);
+                        break;
                     }
-                    pathToFiles = args[++i] + "\\";
-                    File path = new File(pathToFiles);
 
+                    pathToFiles = args[++i] + (args[i].endsWith("\\") ? "" : "\\");
+
+                    File path = new File(pathToFiles);
                     if (!path.exists()) {
                         if (isThereWrongChars(path.getName())) {
-                            addError("В '+' есть запрещенные символы для создания папки.", path.getName());
-                            return null;
+                            addError("В '+' есть запрещенные символы для создания папки." +
+                                    " Выходные файлы будут помещены в папку с программой.", pathToFiles);
+                            pathToFiles = "";
+                            break;
                         }
                         if (!path.mkdir()) {
-                            addError("Пути '+' не существует.", path.getParent());
-                            return null;
+                            addError("Пути '+' не существует." +
+                                    " Выходные файлы будут помещены в папку с программой.", path.getParent());
+                            pathToFiles = "";
                         }
                     }
                     break;
                 }
                 case "-p": {
                     if (i >= args.length-1) {
-                        addError("Параметр команды '+' отсутствует.", args[i]);
-                        return null;
+                        addError("Параметр команды '+' отсутствует." +
+                                " Выходные файлы будут иметь стандартные названия.", args[i]);
+                        break;
                     }
                     prefix = args[++i];
 
                     if (isThereWrongChars(prefix)) {
-                        addError("В '+' есть запрещенные символы для создания файла.", prefix);
-                        return null;
+                        addError("В '+' есть запрещенные символы для создания файла." +
+                                " Выходные файлы будут иметь стандартные названия.", prefix);
+                        prefix = "";
                     }
 
                     break;
@@ -233,7 +240,7 @@ public class Filter {
             }
         }
 
-        addError("Не указаны входные файлы.", null);
+        addError("Не указаны исходные файлы.", null);
         return null;
     }
 
@@ -304,6 +311,9 @@ public class Filter {
 
     //Проверка на запрещенные символы
     private boolean isThereWrongChars(String str) {
+        if (str == null)
+            return true;
+
         for (char ch: new char[]{'\\','/',':','*','?','"','<','>','|'}) {
             if (str.indexOf(ch) != -1) { return true; }
         }
@@ -345,7 +355,7 @@ public class Filter {
 
     //Добавление ошибки
     private void addError(String error, String param) {
-        if (error.contains("+"))
+        if (error.contains("+") && param != null && !param.isEmpty())
             outInfo += error.replace("+", param) + "\n";
         else
             outInfo += error + "\n";
