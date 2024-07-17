@@ -1,6 +1,7 @@
 import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -241,7 +242,12 @@ public class Filter {
                 }
                 default: {
                     String[] s = getFiles(args[i]);
-                    if (s != null) {files.addAll(List.of(s));}
+                    for (String str: s) {
+                        if (files.contains(str))
+                            addError("Файл '+' уже указан.", str);
+                        else
+                            files.add(str);
+                    }
                     break;
                 }
             }
@@ -326,15 +332,14 @@ public class Filter {
         return false;
     }
 
-    //Выделение путей исходных файлов в массив
+    //Выделение путей / пути исходного файлов
     private String[] getFiles(String arg) {
         String[] args = arg.split(",");
         if (args.length == 1) {
-            if (!new File(args[0]).exists()) {
+            if (!new File(args[0]).exists() || !args[0].endsWith("txt")) {
                 addError("Файл '+' не возможно прочитать или его не существует.", args[0]);
                 return new String[]{};
-            }
-            else
+            } else
                 return new String[]{args[0]};
         }
 
@@ -345,14 +350,19 @@ public class Filter {
             File folder = new File(new File(args[0]).getParent());
             if (!folder.exists()) {
                 addError("Пути '+' не существует.", folder.getPath());
-                return null;
+                return new String[]{};
             }
             path = folder.getPath() + "\\";
         }
 
         for (int j = 0; j < args.length; j++) {
             String filePath = j==0 ? args[0] : path + args[j];
-            if (!new File(filePath).exists()) {
+            if (files.contains(filePath)) {
+                addError("Файл '+' уже указан.", filePath);
+                continue;
+            }
+
+            if (!new File(filePath).exists() || !filePath.endsWith("txt")) {
                 addError("Файл '+' не возможно прочитать или его не существует.", filePath);
                 continue;
             }
