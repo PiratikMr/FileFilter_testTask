@@ -2,6 +2,7 @@ import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class Filter {
     private String pathToFiles = "";
@@ -65,7 +66,10 @@ public class Filter {
                 }
                 case INTEGERS: {
                     countInt++;
-                    int value = Integer.parseInt(str);
+                    int value;
+                    try {
+                        value = Integer.parseInt(str);
+                    } catch (NumberFormatException e) {break;}
 
                     sumInt += value;
                     averageInt = (float) sumInt / countInt;
@@ -81,7 +85,10 @@ public class Filter {
                 }
                 case FLOATS: {
                     countFl++;
-                    float value = Float.parseFloat(str);
+                    float value;
+                    try {
+                        value = Float.parseFloat(str);
+                    } catch (NumberFormatException e) {break;}
 
                     sumFl += value;
                     averageFl = sumFl / countFl;
@@ -145,16 +152,10 @@ public class Filter {
     public static String filter(String[] args) {
         Filter filter = new Filter();
 
-        String[] files;
-        try {
-            int idx = Integer.parseInt(filter.initParam(args));
-            files = filter.getFiles(args, idx);
-        } catch (NumberFormatException e) {
-            return filter.outInfo;
-        }
+        String[] files = filter.initParam(args);
 
-        if (files == null)
-            return filter.outInfo + "Нет данных для записи.";
+        if (files.length == 0)
+            return filter.outInfo + "Нет данных для записи.\n";
 
 
         for (FileType type: FileType.values()) //инициализация выходных данных
@@ -177,8 +178,10 @@ public class Filter {
             return filter.outInfo;
     }
 
+    
     //Инициализация параметров
-    private String initParam (String[] args) {
+    private String[] initParam (String[] args) {
+        ArrayList<String> files = new ArrayList<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "-o": {
@@ -235,13 +238,15 @@ public class Filter {
                     break;
                 }
                 default: {
-                    return String.valueOf(i);
+                    String[] s = getFiles(args[i]);
+                    if (s != null) {files.addAll(List.of(s));}
+                    break;
                 }
             }
         }
 
-        addError("Не указаны исходные файлы.", null);
-        return null;
+        if (files.isEmpty()) { addError("Не указаны исходные файлы.", null); }
+        return files.toArray(new String[0]);
     }
 
     //Чтение файлов и распределение данных
@@ -277,7 +282,6 @@ public class Filter {
 
     //Создание выходных файлов и запись фильтрованных данных
     private boolean createOutFiles() {
-
         for (FileType type: FileType.values()) {
             if (outText.get(type).isEmpty()) {
                 outText.remove(type);
@@ -321,36 +325,40 @@ public class Filter {
     }
 
     //Выделение путей исходных файлов в массив
-    private String[] getFiles(String[] args, int fromIdx) {
-        ArrayList<String> files = new ArrayList<>();
-        for (int i = fromIdx; i < args.length; i++) {
-            String[] arg = args[i].split(",");
-            if (arg.length == 1) {
-                if (!new File(args[i]).exists())
-                    addError("Файл '+' не возможно прочитать или его не существует.", args[i]);
-                else
-                    files.add(args[i]);
-                continue;
+    private String[] getFiles(String arg) {
+        String[] args = arg.split(",");
+        if (args.length == 1) {
+            if (!new File(args[0]).exists()) {
+                addError("Файл '+' не возможно прочитать или его не существует.", args[0]);
+                return new String[]{};
             }
-
-            File folder = new File(new File(arg[0]).getParent());
-            if (!folder.exists()) {
-                addError("Пути '+' не существует.", folder.getName());
-                continue;
-            }
-
-            for (int j = 0; j < arg.length; j++) {
-                String filePath = j==0 ? arg[0] : folder.getPath() + "\\" + arg[j];
-                if (!new File(filePath).exists()) {
-                    addError("Файл '+' не возможно прочитать или его не существует.", filePath);
-                    continue;
-                }
-
-                files.add(filePath);
-            }
+            else
+                return new String[]{args[0]};
         }
 
-        return files.isEmpty() ? null : files.toArray(new String[0]);
+        ArrayList<String> files = new ArrayList<>();
+
+        String path = "";
+        if (args[0].contains("\\")) {
+            File folder = new File(new File(args[0]).getParent());
+            if (!folder.exists()) {
+                addError("Пути '+' не существует.", folder.getPath());
+                return null;
+            }
+            path = folder.getPath() + "\\";
+        }
+
+        for (int j = 0; j < args.length; j++) {
+            String filePath = j==0 ? args[0] : path + args[j];
+            if (!new File(filePath).exists()) {
+                addError("Файл '+' не возможно прочитать или его не существует.", filePath);
+                continue;
+            }
+
+            files.add(filePath);
+        }
+
+        return files.toArray(new String[0]);
     }
 
     //Добавление ошибки
