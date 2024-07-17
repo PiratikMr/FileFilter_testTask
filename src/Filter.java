@@ -167,7 +167,9 @@ public class Filter {
             try {
                 BufferedReader reader = new BufferedReader(new FileReader(file));
                 readers.add(reader);
-            } catch (IOException ignore) {}
+            } catch (IOException e) {
+                filter.addError("Файл '+' не возможно прочитать или его не существует.", file);
+            }
         }
 
         filter.fileFilter(readers);
@@ -363,7 +365,7 @@ public class Filter {
 
     //Добавление ошибки
     private void addError(String error, String param) {
-        if (error.contains("+") && param != null && !param.isEmpty())
+        if (error.contains("+") && param != null)
             outInfo += error.replace("+", param) + "\n";
         else
             outInfo += error + "\n";
