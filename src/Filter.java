@@ -1,9 +1,7 @@
 import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 
 public class Filter {
     private String pathToFiles = "";
@@ -11,7 +9,7 @@ public class Filter {
     private final Info info = new Info();
     private boolean isAddData = false;
 
-    private String outInfo = "";
+    private String outInfo = "\n";
 
     private final HashMap<FileType, String> outText = new HashMap<>();
 
@@ -155,12 +153,10 @@ public class Filter {
 
         String[] files = filter.initParam(args);
 
-        if (files.length == 0)
-            return filter.outInfo + "Нет данных для записи.\n";
-
-
-        for (FileType type: FileType.values()) //инициализация выходных данных
-            filter.outText.put(type, "");
+        if (files.length == 0) {
+            filter.addNoDataError();
+            return filter.outInfo;
+        }
 
 
         ArrayList<BufferedReader> readers = new ArrayList<>();
@@ -169,7 +165,7 @@ public class Filter {
                 BufferedReader reader = new BufferedReader(new FileReader(file));
                 readers.add(reader);
             } catch (IOException e) {
-                filter.addError("Файл '+' не возможно прочитать или его не существует.", file);
+                filter.addNoExistFileError(file);
             }
         }
 
@@ -177,8 +173,10 @@ public class Filter {
 
         if (filter.createOutFiles())
             return filter.outInfo + filter.info;
-        else
+        else {
+            filter.addError("Ошибка записи. Некоторые или все файлы не были записаны.",null);
             return filter.outInfo;
+        }
     }
 
     
@@ -189,43 +187,45 @@ public class Filter {
             switch (args[i]) {
                 case "-o": {
                     if (i >= args.length-1) {
-                        addError("Параметр команды '+' отсутствует." +
-                                " Выходные файлы будут помещены в папку с программой.", args[i]);
+                        addNoParamError(args[i]);
+                        addNoExistPathToFileError();
                         break;
                     }
 
-                    pathToFiles = args[++i] + (args[i].endsWith("\\") ? "" : "\\");
-
-                    File path = new File(pathToFiles);
+                    String t = args[++i] + (args[i].endsWith("\\") ? "" : "\\");
+                    File path = new File(t);
                     if (!path.exists()) {
                         if (isThereWrongChars(path.getName())) {
-                            addError("В '+' есть запрещенные символы для создания папки." +
-                                    " Выходные файлы будут помещены в папку с программой.", pathToFiles);
-                            pathToFiles = "";
+                            addHasInvalidSymbolsError(path.getName());
+                            addNoExistPathToFileError();
                             break;
                         }
                         if (!path.mkdir()) {
-                            addError("Пути '+' не существует." +
-                                    " Выходные файлы будут помещены в папку с программой.", path.getParent());
-                            pathToFiles = "";
+                            addError("Пути '+' не существует.", path.getParent());
+                            addNoExistPathToFileError();
+                            break;
+                        } else {
+                            path.delete();
                         }
                     }
+
+                    pathToFiles = t;
                     break;
                 }
                 case "-p": {
                     if (i >= args.length-1) {
-                        addError("Параметр команды '+' отсутствует." +
-                                " Выходные файлы будут иметь стандартные названия.", args[i]);
+                        addNoParamError(args[i]);
+                        addNoExistPrefixError();
                         break;
                     }
-                    prefix = args[++i];
 
-                    if (isThereWrongChars(prefix)) {
-                        addError("В '+' есть запрещенные символы для создания файла." +
-                                " Выходные файлы будут иметь стандартные названия.", prefix);
-                        prefix = "";
+                    if (isThereWrongChars(args[++i])) {
+                        addHasInvalidSymbolsError(args[i]);
+                        addNoExistPrefixError();
+                        break;
                     }
 
+                    prefix = args[i];
                     break;
                 }
                 case "-a": {
@@ -244,7 +244,7 @@ public class Filter {
                     String[] s = getFiles(args[i]);
                     for (String str: s) {
                         if (files.contains(str))
-                            addError("Файл '+' уже указан.", str);
+                            addFileAlreadyAddedError(str);
                         else
                             files.add(str);
                     }
@@ -290,6 +290,14 @@ public class Filter {
 
     //Создание выходных файлов и запись фильтрованных данных
     private boolean createOutFiles() {
+        if (outText.isEmpty()) {
+            addNoDataError();
+            return false;
+        }
+
+        File path = new File(pathToFiles);
+        if (!path.exists()) path.mkdir();
+
         for (FileType type: FileType.values()) {
             if (outText.get(type).isEmpty()) {
                 outText.remove(type);
@@ -303,22 +311,22 @@ public class Filter {
                 return false;
             }
         }
-        if (outText.isEmpty()) {
-            addError("Нет данных для записи.", null);
-            return false;
-        } else
-            return true;
+        return true;
     }
-
 
 
     //Доп. функции
 
     //Добавление данных
     private void addStr(String str, FileType type) {
-        outText.replace(type, outText.get(type), outText.get(type) + str + "\n");
-
         info.editInfo(str, type);
+
+        if (!outText.containsKey(type)) {
+            outText.put(type, str + "\n");
+            return;
+        }
+
+        outText.replace(type, outText.get(type), outText.get(type) + str + "\n");
     }
 
     //Проверка на запрещенные символы
@@ -337,7 +345,7 @@ public class Filter {
         String[] args = arg.split(",");
         if (args.length == 1) {
             if (!new File(args[0]).exists() || !args[0].endsWith("txt")) {
-                addError("Файл '+' не возможно прочитать или его не существует.", args[0]);
+                addNoExistFileError(args[0]);
                 return new String[]{};
             } else
                 return new String[]{args[0]};
@@ -358,12 +366,12 @@ public class Filter {
         for (int j = 0; j < args.length; j++) {
             String filePath = j==0 ? args[0] : path + args[j];
             if (files.contains(filePath)) {
-                addError("Файл '+' уже указан.", filePath);
+                addFileAlreadyAddedError(filePath);
                 continue;
             }
 
             if (!new File(filePath).exists() || !filePath.endsWith("txt")) {
-                addError("Файл '+' не возможно прочитать или его не существует.", filePath);
+                addNoExistFileError(filePath);
                 continue;
             }
 
@@ -379,5 +387,30 @@ public class Filter {
             outInfo += error.replace("+", param) + "\n";
         else
             outInfo += error + "\n";
+    }
+
+    //Часто используемые ошибки
+    private void addNoExistPathToFileError() {
+        if (pathToFiles.isEmpty()) addError("Выходные файлы будут помещены в папку с программой.",null);
+        else addError("Выходные файлы будут помещены в '+'.", pathToFiles);
+    }
+    private void addNoExistPrefixError() {
+        if (prefix.isEmpty()) addError("Выходные файлы будут иметь стандартные названия.", null);
+        else addError("Выходные файлы будут начинаться с '+'.", prefix);
+    }
+    private void addNoExistFileError(String file) {
+        addError("Файл '+' не возможно прочитать или его не существует.", file);
+    }
+    private void addNoDataError() {
+        addError("Нет данных для записи.", null);
+    }
+    private void addNoParamError(String param) {
+        addError("Параметр команды '+' отсутствует.", param);
+    }
+    private void addHasInvalidSymbolsError(String file) {
+        addError("В '+' есть запрещенные символы.", file);
+    }
+    private void addFileAlreadyAddedError(String file) {
+        addError("Файл '+' уже указан.", file);
     }
 }
