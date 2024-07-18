@@ -154,6 +154,7 @@ public class Filter {
         String[] files = filter.initParam(args);
 
         if (files.length == 0) {
+            filter.addError("Не указаны исходные файлы.", null);
             filter.addNoDataError();
             return filter.outInfo;
         }
@@ -174,7 +175,6 @@ public class Filter {
         if (filter.createOutFiles())
             return filter.outInfo + filter.info;
         else {
-            filter.addError("Ошибка записи. Некоторые или все файлы не были записаны.",null);
             return filter.outInfo;
         }
     }
@@ -253,7 +253,6 @@ public class Filter {
             }
         }
 
-        if (files.isEmpty()) { addError("Не указаны исходные файлы.", null); }
         return files.toArray(new String[0]);
     }
 
@@ -264,8 +263,7 @@ public class Filter {
                 try {
                     String str = readers.get(i).readLine();
                     if (str == null) {
-                        readers.remove(i).close();
-                        i--;
+                        readers.remove(i--).close();
                         continue;
                     }
 
@@ -299,10 +297,6 @@ public class Filter {
         if (!path.exists()) path.mkdir();
 
         for (FileType type: FileType.values()) {
-            if (outText.get(type).isEmpty()) {
-                outText.remove(type);
-                continue;
-            }
             try {
                 BufferedWriter w = new BufferedWriter(new FileWriter(pathToFiles + prefix + type, isAddData));
                 w.write(outText.get(type));
@@ -315,7 +309,7 @@ public class Filter {
     }
 
 
-    //Доп. функции
+    //Доп. Функции
 
     //Добавление данных
     private void addStr(String str, FileType type) {
@@ -334,9 +328,9 @@ public class Filter {
         if (str == null)
             return true;
 
-        for (char ch: new char[]{'\\','/',':','*','?','"','<','>','|'}) {
-            if (str.indexOf(ch) != -1) { return true; }
-        }
+        for (char ch: new char[]{'\\','/',':','*','?','"','<','>','|'})
+            if (str.indexOf(ch) != -1) return true;
+
         return false;
     }
 
@@ -344,7 +338,7 @@ public class Filter {
     private String[] getFiles(String arg) {
         String[] args = arg.split(",");
         if (args.length == 1) {
-            if (!new File(args[0]).exists() || !args[0].endsWith("txt")) {
+            if (!new File(args[0]).exists() || !args[0].endsWith(".txt")) {
                 addNoExistFileError(args[0]);
                 return new String[]{};
             } else
@@ -370,7 +364,7 @@ public class Filter {
                 continue;
             }
 
-            if (!new File(filePath).exists() || !filePath.endsWith("txt")) {
+            if (!new File(filePath).exists() || !filePath.endsWith(".txt")) {
                 addNoExistFileError(filePath);
                 continue;
             }
