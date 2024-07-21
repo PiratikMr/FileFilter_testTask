@@ -13,6 +13,7 @@ public class Filter {
 
     private final HashMap<FileType, String> outText = new HashMap<>();
 
+
     private enum InfoType {
         SHORT, FULL, NONE;
     }
@@ -48,7 +49,6 @@ public class Filter {
         public Info() {
             type = InfoType.NONE;
         }
-
         public void editInfo(String str, FileType type) {
             switch (type) {
                 case STRINGS: {
@@ -159,7 +159,6 @@ public class Filter {
             return filter.outInfo;
         }
 
-
         ArrayList<BufferedReader> readers = new ArrayList<>();
         for (String file : files) {
             try {
@@ -174,9 +173,8 @@ public class Filter {
 
         if (filter.createOutFiles())
             return filter.outInfo + filter.info;
-        else {
+        else
             return filter.outInfo;
-        }
     }
 
     
@@ -280,8 +278,15 @@ public class Filter {
                     } catch (NumberFormatException ignore) {}
 
                     addStr(str, FileType.STRINGS);
-
-                } catch (IOException ignore) {}
+                } catch (IOException e) {
+                    addError("Не возможно прочитать один из исходных файлов.", null);
+                    try {
+                        readers.remove(i--).close();
+                    } catch (IOException exc) {
+                        addError("Не возможно закрыть один из файлов.", null);
+                        return;
+                    }
+                }
             }
         }
     }
@@ -294,7 +299,12 @@ public class Filter {
         }
 
         File path = new File(pathToFiles);
-        if (!path.exists()) path.mkdir();
+        if (!path.exists()){
+            if (!path.mkdir()) {
+                pathToFiles = "";
+                addNoExistPathToFileError();
+            }
+        }
 
         for (FileType type: FileType.values()) {
             try {
@@ -334,8 +344,11 @@ public class Filter {
         return false;
     }
 
-    //Выделение путей / пути исходного файлов
+    //Выделение путей / пути исходных файлов
     private String[] getFiles(String arg) {
+        if (arg == null || arg.isEmpty())
+            return new String[]{};
+
         String[] args = arg.split(",");
         if (args.length == 1) {
             if (!new File(args[0]).exists() || !args[0].endsWith(".txt")) {
@@ -359,6 +372,7 @@ public class Filter {
 
         for (int j = 0; j < args.length; j++) {
             String filePath = j==0 ? args[0] : path + args[j];
+
             if (files.contains(filePath)) {
                 addFileAlreadyAddedError(filePath);
                 continue;
